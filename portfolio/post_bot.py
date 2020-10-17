@@ -1,9 +1,16 @@
+from portfolio import app
 import telebot
 from . import model, credentials
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+import time
+from flask import request
 
 token = credentials.token
 bot = telebot.TeleBot(token)
+
+bot.remove_webhook()
+time.sleep(1)
+bot.set_webhook(url="https://www.alexpa.dev/{}".format(token))
 
 # saves post's data while user's working on it
 post_dict = {}
@@ -11,78 +18,10 @@ post_dict = {}
 storage_channel_id = credentials.storage_channel_id
 
 
-def main_menu_markup():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(InlineKeyboardButton("Create post", callback_data="create_post"))
-    return markup
-
-
-def post_markup(message):
-    post = post_dict[message.chat.id]
-    word = post.words[-1]
-    definition_number = len(word.definitions) + 1
-    markup = InlineKeyboardMarkup()
-    add_definition_button = InlineKeyboardButton("Add definition #{0}".format(definition_number),
-                                                 callback_data="add_definition")
-    add_tags_button = InlineKeyboardButton("Add tags", callback_data="add_tags")
-    add_links_button = InlineKeyboardButton("Add dictionary links", callback_data="add_links")
-    add_synonyms_button = InlineKeyboardButton("Add synonyms", callback_data="add_synonyms")
-    add_new_word_button = InlineKeyboardButton("Add new word", callback_data="add_new_word")
-    cancel_button = InlineKeyboardButton("Cancel", callback_data="cancel")
-    finish_button = InlineKeyboardButton("Finish", callback_data="finish")
-
-    markup.add(add_definition_button)
-    if not word.synonyms:
-        markup.add(add_synonyms_button)
-    if word.definitions:
-        markup.add(add_new_word_button)
-    if not post.hashTags:
-        markup.add(add_tags_button)
-    if not post.oxford and not post.cambridge and not post.context:
-        markup.add(add_links_button)
-
-    markup.row(cancel_button, finish_button)
-
-    return markup
-
-
-def skip_markup():
-    markup = ReplyKeyboardMarkup(one_time_keyboard=True)
-    markup.add(KeyboardButton('Skip'))
-    return markup
-
-
-def parts_of_speech_markup():
-    markup = ReplyKeyboardMarkup(one_time_keyboard=True)
-    markup.add(KeyboardButton('noun'), KeyboardButton('verb'), KeyboardButton('adjective'), KeyboardButton('adverb'),
-               KeyboardButton('conjunction'), KeyboardButton('Idiom'), KeyboardButton('phrasal verb'))
-    return markup
-
-
-def tags_markup(message):
-    markup = ReplyKeyboardMarkup(one_time_keyboard=True, row_width=2)
-    post = post_dict[message.chat.id]
-    word = post.words[0]
-    if word.partOfSpeech == "Idiom":
-        markup.add(KeyboardButton('#Idioms #B1'), KeyboardButton('#Idioms #B2'),
-                   KeyboardButton('#Idioms #C1'), KeyboardButton('#Idioms #C2'))
-    elif word.partOfSpeech == "phrasal verb":
-        markup.add(KeyboardButton('#PhrasalVerb #B1'), KeyboardButton('#PhrasalVerb #B2'),
-                   KeyboardButton('#PhrasalVerb #C1'), KeyboardButton('#PhrasalVerb #C2'))
-    else:
-        markup.add(KeyboardButton('#Words #B1'), KeyboardButton('#Words #B2'), KeyboardButton('#Words #C1'),
-                   KeyboardButton('#Words #C2'))
-    return markup
-
-
-def send_to_storage_markup():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 2
-    markup.add(InlineKeyboardButton("Send", callback_data="send_to_storage"),
-               InlineKeyboardButton("Edit", callback_data="edit_before_sending"),
-               InlineKeyboardButton("Cancel", callback_data="cancel_sending_to_storage"),)
-    return markup
+@app.route('/{}'.format(bot.token), methods=["POST"])
+def respond():
+    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+    return "ok", 200
 
 
 @bot.message_handler(commands=['start'])
@@ -288,3 +227,79 @@ def process_edited_post(message):
         bot.send_message(storage_channel_id, links, parse_mode="Markdown")
     post_dict.pop(message.chat.id)
     bot.send_message(message.chat.id, "Create new post here.", reply_markup=main_menu_markup())
+
+
+def main_menu_markup():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(InlineKeyboardButton("Create post", callback_data="create_post"))
+    return markup
+
+
+def post_markup(message):
+    post = post_dict[message.chat.id]
+    word = post.words[-1]
+    definition_number = len(word.definitions) + 1
+    markup = InlineKeyboardMarkup()
+    add_definition_button = InlineKeyboardButton("Add definition #{0}".format(definition_number),
+                                                 callback_data="add_definition")
+    add_tags_button = InlineKeyboardButton("Add tags", callback_data="add_tags")
+    add_links_button = InlineKeyboardButton("Add dictionary links", callback_data="add_links")
+    add_synonyms_button = InlineKeyboardButton("Add synonyms", callback_data="add_synonyms")
+    add_new_word_button = InlineKeyboardButton("Add new word", callback_data="add_new_word")
+    cancel_button = InlineKeyboardButton("Cancel", callback_data="cancel")
+    finish_button = InlineKeyboardButton("Finish", callback_data="finish")
+
+    markup.add(add_definition_button)
+    if not word.synonyms:
+        markup.add(add_synonyms_button)
+    if word.definitions:
+        markup.add(add_new_word_button)
+    if not post.hashTags:
+        markup.add(add_tags_button)
+    if not post.oxford and not post.cambridge and not post.context:
+        markup.add(add_links_button)
+
+    markup.row(cancel_button, finish_button)
+
+    return markup
+
+
+def skip_markup():
+    markup = ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup.add(KeyboardButton('Skip'))
+    return markup
+
+
+def parts_of_speech_markup():
+    markup = ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup.add(KeyboardButton('noun'), KeyboardButton('verb'), KeyboardButton('adjective'), KeyboardButton('adverb'),
+               KeyboardButton('conjunction'), KeyboardButton('Idiom'), KeyboardButton('phrasal verb'))
+    return markup
+
+
+def tags_markup(message):
+    markup = ReplyKeyboardMarkup(one_time_keyboard=True, row_width=2)
+    post = post_dict[message.chat.id]
+    word = post.words[0]
+    if word.partOfSpeech == "Idiom":
+        markup.add(KeyboardButton('#Idioms #B1'), KeyboardButton('#Idioms #B2'),
+                   KeyboardButton('#Idioms #C1'), KeyboardButton('#Idioms #C2'))
+    elif word.partOfSpeech == "phrasal verb":
+        markup.add(KeyboardButton('#PhrasalVerb #B1'), KeyboardButton('#PhrasalVerb #B2'),
+                   KeyboardButton('#PhrasalVerb #C1'), KeyboardButton('#PhrasalVerb #C2'))
+    else:
+        markup.add(KeyboardButton('#Words #B1'), KeyboardButton('#Words #B2'), KeyboardButton('#Words #C1'),
+                   KeyboardButton('#Words #C2'))
+    return markup
+
+
+def send_to_storage_markup():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    markup.add(InlineKeyboardButton("Send", callback_data="send_to_storage"),
+               InlineKeyboardButton("Edit", callback_data="edit_before_sending"),
+               InlineKeyboardButton("Cancel", callback_data="cancel_sending_to_storage"),)
+    return markup
+
+
