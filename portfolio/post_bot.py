@@ -1,12 +1,13 @@
 from portfolio import app
 import telebot
-from . import model, credentials
+from portfolio import credentials, model
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 import time
 from flask import request
 
 token = credentials.token
-bot = telebot.TeleBot(token)
+bot = telebot.TeleBot(token, threaded=False)
+
 
 bot.remove_webhook()
 time.sleep(1)
@@ -301,5 +302,8 @@ def send_to_storage_markup():
                InlineKeyboardButton("Edit", callback_data="edit_before_sending"),
                InlineKeyboardButton("Cancel", callback_data="cancel_sending_to_storage"),)
     return markup
+
+
+
 
 
